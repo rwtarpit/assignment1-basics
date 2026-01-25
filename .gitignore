@@ -1,3 +1,9 @@
+#data files
+cs336_basics/data/
+cs336_basics/owt_train.pkl
+cs336_basics/tiny_stories_train.pkl
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
