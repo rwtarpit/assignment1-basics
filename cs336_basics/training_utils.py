@@ -152,21 +152,33 @@ def decode(model : torch.nn.Module,
            special_token : int,
            temperature : float = 1,
            top_p : float = 1):
+    assert prompt.shape[0] == 1, "can only process one prompt at a time"
     assert temperature>=0, "temperature must be >= 0"
+    assert 0<top_p<=1, "nucleus sampling should be btw (0,1]"
+    
     from utils import softmax
     
-    new_token = None
+    new_token = -1
     generated_tokens = 0
-    while new_token != special_token or generated_tokens<max_tokens:
+    while new_token != special_token and generated_tokens<max_tokens:
         logits = model(prompt)
         last_logits = logits[:,-1,:]
         
         if temperature == 0:
-            new_token = torch.argmax(last_logits,dim=-1,keepdim=False).indices       
+            new_token = torch.argmax(last_logits,dim=-1,keepdim=True)     
         else:    
             probs = softmax(last_logits/temperature, dim=-1)
-            new_token = torch.argmax(probs,dim=-1,keepdim=False).indices
-        
+            sorted_probs, indices = torch.sort(probs,dim=-1,descending=True)
+            
+            cum_prob = torch.cumsum(sorted_probs,dim=-1)
+            ids_to_remove = cum_prob > top_p
+            ids_to_remove[...,1:] = ids_to_remove[...,:-1].clone()
+            ids_to_remove[...,0] = False
+            not_sampled_indices = indices[ids_to_remove]
+            
+            probs.scatter_(-1, not_sampled_indices.unsqueeze(0), 0.0)
+            new_token = torch.multinomial(probs,num_samples=1)
+
         generated_tokens+=1
         prompt = torch.concat((prompt,new_token),dim=-1)
         
