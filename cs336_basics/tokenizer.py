@@ -45,7 +45,7 @@ class tokenizer():
     def __init__(self, vocab : dict[int,bytes], merges : list[tuple[bytes,bytes]], special_tokens = None):
         self.decoding_vocab : dict = vocab #{id:tuple}
         self.encoding_vocab : dict = {value : key for key,value in vocab.items()}  #{tuple:id}
-        self.merges : list = merges
+        self.merges : dict = {merge:i for i, merge in enumerate(merges)}
         self.special_tokens : list = special_tokens
         #self._cache = {}
         self.PATTERN = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
@@ -69,6 +69,45 @@ class tokenizer():
         return cls(vocab,merges,special_tokens)
         
 
+    def encode_token(self, token_bytes : list[bytes]):
+        """merges bytes based on order of merges during vocab training"""
+        def get_pairs(token_bytes):
+            pairs = set()
+            el_1 = token_bytes[0]
+            for el_2 in token_bytes[1:]:
+                pairs.add((el_1,el_2))
+                el_1 = el_2
+            return pairs
+        
+        byte_pairs = get_pairs(token_bytes)
+        if not byte_pairs:
+            return token_bytes
+        
+        while True:
+            first_merge = min(byte_pairs, key = lambda merge : self.merges.get(merge,float('inf')))
+            if first_merge not in self.merges:
+                break
+            
+            new_token_bytes = []
+            i = 0
+            while i < len(token_bytes): 
+                if i < len(token_bytes)-1 and token_bytes[i] == first_merge[0] and token_bytes[i+1] == first_merge[1]:
+                    new_token_bytes.append(first_merge[0]+first_merge[1])
+                    i += 2
+                else:
+                    new_token_bytes.append(token_bytes[i])
+                    i += 1
+            
+            token_bytes = new_token_bytes
+            if len(token_bytes) == 1:
+                break
+            else:
+                byte_pairs = get_pairs(token_bytes)
+        
+        return token_bytes
+        
+        
+    
                 
     def encode(self, text, cache = {}):
         """
@@ -94,13 +133,7 @@ class tokenizer():
             else:
                 # Byte-level BPE merge logic
                 byte_list = [bytes([b]) for b in token.encode("utf-8")]
-                for merge in self.merges:
-                    i = 0
-                    while i < len(byte_list) - 1:
-                        if byte_list[i] == merge[0] and byte_list[i + 1] == merge[1]:
-                            byte_list[i:i+2] = [merge[0] + merge[1]]
-                        else:
-                            i += 1
+                byte_list = self.encode_token(byte_list)
                 res = [self.encoding_vocab[b] for b in byte_list]
             
             cache[token] = res
@@ -171,12 +204,12 @@ def parellel_encoding(file_path, data_path, num_process, separator):
     init_args = (loaded_data['vocab'], loaded_data['merges'], ["<|endoftext|>"])
     
     with open(file_path, "rb") as f:
-        boundaries = find_chunk_boundaries(f, num_process*6, 1024*1024*20, separator)
+        boundaries = find_chunk_boundaries(f, num_process*20, 1024*1024*10, separator)
         # Note: No 'tok' in tasks anymore
     tasks = [(file_path, boundaries[i], boundaries[i+1]) for i in range(len(boundaries)-1)]
         
         # Use 'initializer' to setup the tokenizer once per worker
-    with open(r"/mnt/c/Users/Arpit Rawat/Desktop/cs336/assignment1-basics/cs336_basics/data/owt_valid_encoded.bin", "wb") as f:
+    with open(r"C:\Users\Arpit Rawat\Desktop\cs336\assignment1-basics\cs336_basics\data\owt_train_encoded.bin", "wb") as f:
         with multiprocessing.Pool(processes=num_process, 
                                 initializer=init_worker, 
                                 initargs=init_args) as pool:
@@ -187,8 +220,8 @@ def parellel_encoding(file_path, data_path, num_process, separator):
     #return final_encodings
     
 
-data_path = r"/mnt/c/Users/Arpit Rawat/Desktop/cs336/assignment1-basics/cs336_basics/owt_train.pkl"
-file_path = r"/mnt/c/Users/Arpit Rawat/Desktop/cs336/assignment1-basics/cs336_basics/data/owt_valid.txt"
+data_path = r"C:\Users\Arpit Rawat\Desktop\cs336\assignment1-basics\cs336_basics\owt_train.pkl"
+file_path = r"C:\Users\Arpit Rawat\Desktop\cs336\assignment1-basics\cs336_basics\data\owt_train.txt"
 
 special_tokens = ["<|endoftext|>"]
 
