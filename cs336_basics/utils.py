@@ -119,21 +119,21 @@ class RoPE(nn.Module): #revisit
         k = torch.arange(1, (d_k//2)+1, **factory_args)
         theta_ = theta**(2*(k-1)/d_k)
         sequence = torch.arange(max_seq_len,**factory_args)
-        grid = einsum(sequence, 1.0/theta_, "i, k -> i k")
+        grid = einsum(sequence, 1.0/theta_, "i, k -> i k") #(seq_len,d_k/2)
         self.register_buffer("cos", torch.cos(grid), persistent=False)
         self.register_buffer("sin", torch.sin(grid), persistent=False)
         
     def forward(self, x : torch.Tensor, token_positions : torch.Tensor) -> torch.Tensor:
-        
-        cos = self.cos[token_positions]
+        #x = (batch,heads,seq_len,d_model)
+        cos = self.cos[token_positions] 
         sin = self.sin[token_positions]
         
         x1 = x[...,0::2] #even indices
         x2 = x[...,1::2] #odd indices
         
         while cos.ndim < x1.ndim:
-            cos = cos.unsqueeze(0)
-            sin = sin.unsqueeze(0)
+            cos = cos.unsqueeze(1)
+            sin = sin.unsqueeze(1)
         
         ans = torch.empty_like(x)
         ans[..., 0::2] = x1 * cos - x2 * sin

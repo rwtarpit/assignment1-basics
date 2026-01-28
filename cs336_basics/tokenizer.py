@@ -9,7 +9,7 @@ import mmap
 from typing import Iterable, Iterator
 import array
 
-from tokenization import find_chunk_boundaries
+from cs336_basics.tokenization import find_chunk_boundaries
 
 profiler = cProfile.Profile()
 

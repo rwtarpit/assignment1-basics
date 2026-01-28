@@ -245,7 +245,8 @@ def main():
                     val_input_ids, val_target_ids = data_loading(
                         val_data,
                         args.batch_size,
-                        args.context_len
+                        args.context_len,
+                        device
                     )
                     
                     val_input_ids = torch.from_numpy(val_input_ids).long().to(device)
