@@ -1,4 +1,6 @@
 import torch
+from cs336_basics.tokenizer import tokenizer
+
 
 @torch.no_grad()
 def decode(model : torch.nn.Module,
@@ -40,3 +42,24 @@ def decode(model : torch.nn.Module,
     return prompt
 
 
+def generate(model : torch.nn.Module,
+            tokenizer : tokenizer,
+            prompt : str,
+            max_tokens : int,
+            special_token : int,
+            temperature : float = 1,
+            top_p : float = 1
+            ) -> str:
+    
+    encoded_prompt = tokenizer.encode(prompt)
+    encoded_tokens = torch.tensor(encoded_prompt)
+    decoding_args = {"model" : model,
+                     "prompt" : encoded_tokens,
+                     "max_tokens" : max_tokens,
+                     "special_token" : special_token,
+                     "temperature" : temperature,
+                     "top_p" : top_p}
+    
+    generated_tokens = decode(**decoding_args)
+    return tokenizer.decode(generated_tokens.detach().cpu().tolist())
+    
