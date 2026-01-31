@@ -192,7 +192,7 @@ class MHA(nn.Module):
             k = self.rope(k,token_positions)
         
         mask = torch.tril(torch.ones((seq_len,seq_len),device=x.device))
-        
+        mask = mask.unsqueeze(0).unsqueeze(0)
         o = self_attention(q,k,v,mask)
         output = rearrange(o, "b heads seq d_head -> b seq (heads d_head)")
         return self.output_proj(output)
@@ -244,9 +244,9 @@ class LLM(nn.Module):
                                           theta,
                                           context_length,
                                           **factory_kwargs))
-            self.token_embeddings = Embedding(vocab_size,d_model,**factory_kwargs)
-            self.ln_final = RMSNorm(d_model,**factory_kwargs)
-            self.lm_head = Linear(d_model,vocab_size,**factory_kwargs)
+        self.token_embeddings = Embedding(vocab_size,d_model,**factory_kwargs)
+        self.ln_final = RMSNorm(d_model,**factory_kwargs)
+        self.lm_head = Linear(d_model,vocab_size,**factory_kwargs)
             
     def forward(self, x : torch.Tensor):
         x = self.token_embeddings(x)
