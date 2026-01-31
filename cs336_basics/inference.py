@@ -7,14 +7,15 @@ def decode(model : torch.nn.Module,
            prompt : torch.Tensor,
            max_tokens : int,
            special_token : int,
-           temperature : float = 1,
-           top_p : float = 1):
+           temperature : float = 1.0,
+           top_p : float = 1.0):
     assert prompt.shape[0] == 1, "can only process one prompt at a time"
     assert temperature>=0, "temperature must be >= 0"
     assert 0<top_p<=1, "nucleus sampling should be btw (0,1]"
     
     from utils import softmax
     
+    prompt = prompt.unsqueeze(0)
     new_token = -1
     generated_tokens = 0
     while new_token != special_token and generated_tokens<max_tokens:
@@ -47,12 +48,13 @@ def generate(model : torch.nn.Module,
             prompt : str,
             max_tokens : int,
             special_token : int,
-            temperature : float = 1,
-            top_p : float = 1
+            temperature : float = 1.0,
+            top_p : float = 1.0
             ) -> str:
     
+    device = next(model.parameters()).device
     encoded_prompt = tokenizer.encode(prompt)
-    encoded_tokens = torch.tensor(encoded_prompt)
+    encoded_tokens = torch.tensor(encoded_prompt,device=device)
     decoding_args = {"model" : model,
                      "prompt" : encoded_tokens,
                      "max_tokens" : max_tokens,
@@ -61,5 +63,5 @@ def generate(model : torch.nn.Module,
                      "top_p" : top_p}
     
     generated_tokens = decode(**decoding_args)
-    return tokenizer.decode(generated_tokens.detach().cpu().tolist())
+    return tokenizer.decode(generated_tokens.squeeze(0).detach().cpu().tolist())
     
