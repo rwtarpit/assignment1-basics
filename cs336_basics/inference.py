@@ -14,8 +14,8 @@ def decode(model : torch.nn.Module,
     assert 0<top_p<=1, "nucleus sampling should be btw (0,1]"
     
     from utils import softmax
-    
-    prompt = prompt.unsqueeze(0)
+    if prompt.ndim == 1:
+        prompt = prompt.unsqueeze(0)
     new_token = -1
     generated_tokens = 0
     while new_token != special_token and generated_tokens<max_tokens:
@@ -47,7 +47,7 @@ def generate(model : torch.nn.Module,
             tokenizer : tokenizer,
             prompt : str,
             max_tokens : int,
-            special_token : int,
+            special_token : str,
             temperature : float = 1.0,
             top_p : float = 1.0
             ) -> str:
@@ -55,10 +55,11 @@ def generate(model : torch.nn.Module,
     device = next(model.parameters()).device
     encoded_prompt = tokenizer.encode(prompt)
     encoded_tokens = torch.tensor(encoded_prompt,device=device)
+    special_token_id = tokenizer.encoding_vocab[special_token.encode("utf-8")]
     decoding_args = {"model" : model,
                      "prompt" : encoded_tokens,
                      "max_tokens" : max_tokens,
-                     "special_token" : special_token,
+                     "special_token" : special_token_id,
                      "temperature" : temperature,
                      "top_p" : top_p}
     
