@@ -187,7 +187,6 @@ class train_tokenizer:
             neg_count, _, pair = heapq.heappop(self.heap)
             count = -neg_count
             
-            # STALE ENTRY CHECK: 
             # If the current count in our master table doesn't match the 
             # count we just popped from the heap, it's an old version. Ignore it.
             actual_count = self.pair_count_table.get(pair, 0)
@@ -195,7 +194,6 @@ class train_tokenizer:
                 max_pair = (pair, count)
                 break
         
-        # ... [Vocab assignment and merge logging remains the same] ...
         id_a, id_b = max_pair[0]
         new_id = max(self.vocab.keys()) + 1
         self.vocab[new_id] = self.vocab[id_a] + self.vocab[id_b]
@@ -204,15 +202,13 @@ class train_tokenizer:
         appeared_in_ids = list(self.occurrence_index[max_pair[0]])
         affected_pairs = set()
         
-        # --- START SNAPSHOT LOGIC ---
+        # merge logic
         for word_id in appeared_in_ids:
             word = self.word_id_to_tuple[word_id] 
             freq = self.word_id_to_count[word_id]
             
-            # 1. Capture snapshots of pairs before and after
             before_pairs = Counter(zip(word, word[1:]))
             
-            # 2. Perform merge
             new_word = []
             i = 0
             while i < len(word): 
@@ -226,12 +222,10 @@ class train_tokenizer:
             
             after_pairs = Counter(zip(new_word, new_word[1:]))
             
-            # 3. Calculate deltas for all affected pairs
             for bp in (set(before_pairs.keys()) | set(after_pairs.keys())):
                 diff = after_pairs[bp] - before_pairs[bp]
                 if diff != 0:
                     self.pair_count_table[bp] = self.pair_count_table.get(bp, 0) + (diff * freq)
-                    # Track this pair to update the heap later
                     affected_pairs.add(bp)
                     
                     if self.pair_count_table[bp] <= 0:
@@ -242,23 +236,18 @@ class train_tokenizer:
                     else:
                         if bp in self.occurrence_index:
                             self.occurrence_index[bp].discard(word_id)
-        # --- END SNAPSHOT LOGIC ---
 
-        # CLEANUP: Remove the pair we just merged
         if max_pair[0] in self.pair_count_table:
             del self.pair_count_table[max_pair[0]]
         if max_pair[0] in self.occurrence_index:
             del self.occurrence_index[max_pair[0]]
 
-        # 5. HEAP UPDATE: Only push the pairs that actually changed
+        # heap update
         for bp in affected_pairs:
             cnt = self.pair_count_table.get(bp, 0)
             if cnt > 0:
-                # Push the new count. The heap will now have two entries 
-                # for 'bp', but our 'while True' loop above will skip the old one.
                 heapq.heappush(self.heap, (-cnt, GreaterPair(bp, self.vocab), bp))
-             
-        #if heap grows too big in size with stale entries       
+                  
         if len(self.heap) > 10*len(self.pair_count_table)+100000:
             self.heap=[]
             for pair, count in self.pair_count_table.items():
